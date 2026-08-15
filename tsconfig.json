@@ -1,0 +1,7 @@
+{
+  "$schema": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["@types/bun"]
+  },
+  "include": ["scripts/**/*.ts"]
+}
