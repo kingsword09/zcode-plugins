@@ -1,0 +1,34 @@
+{
+  "name": "@zcode-plugins/model-config-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unofficial ZCode plugin that opens a local web UI (React + StyleX) to edit model / provider config for the ZCode CLI, with a models.dev (Vercel AI SDK) catalog for one-click import.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/mcp/server.js",
+  "scripts": {
+    "build:web": "bun scripts/build.ts web",
+    "build:node": "bun scripts/build.ts node",
+    "build": "bun run build:web && bun run build:node",
+    "typecheck": "bun run build:web && tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@stylexjs/stylex": "^0.19.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@stylexjs/unplugin": "^0.19.0",
+    "@types/bun": "^1.4.0",
+    "@types/node": "^26.4.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^5.0.0",
+    "@voidzero-dev/vite-plus-core": "^0.3.0",
+    "lucide-react": "^1.39.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "typescript": "^7.0.2"
+  }
+}

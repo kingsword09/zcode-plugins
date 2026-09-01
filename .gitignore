@@ -30,3 +30,6 @@ dist/
 
 # Plugin runtime artifacts (local testing caches)
 .cache/
+
+# Generated web assets (inlined at build time by esbuild.config.ts)
+plugins/*/src/ui/assets.ts
