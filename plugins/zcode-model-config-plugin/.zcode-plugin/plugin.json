@@ -1,0 +1,16 @@
+{
+  "name": "zcode-model-config",
+  "version": "0.1.0",
+  "description": "Open a local web UI to edit ZCode CLI model / provider config (providers, models, multimodal, main/lite), with a models.dev (Vercel AI SDK) catalog for one-click import. Reads and writes ~/.zcode/cli/config.json (user) and project-level zcode.json / .zcode/config.json. Unofficial.",
+  "author": { "name": "kingsword09" },
+  "license": "MIT",
+  "mcpServers": {
+    "zcode-model-config": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${ZCODE_PLUGIN_ROOT}/dist/mcp/server.js"],
+      "env": {}
+    }
+  },
+  "commands": "commands"
+}

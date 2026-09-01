@@ -1,0 +1,61 @@
+/*
+ * Theme tokens as raw CSS custom properties (StyleX styles reference them via
+ * var(--mc-*)). Dark is the default (:root); .theme-light overrides when the
+ * user picks light. The class is toggled on <html> by the app.
+ */
+:root,
+.theme-dark {
+  --mc-bg: #0a0b0f;
+  --mc-panel: #101218;
+  --mc-panel-hover: #161922;
+  --mc-elevated: #151823;
+  --mc-input: #0c0e13;
+  --mc-inset: #08090d;
+  --mc-border: #1d222e;
+  --mc-border-strong: #2a3140;
+  --mc-text: #e9ebf2;
+  --mc-text-dim: #98a0b3;
+  --mc-text-faint: #5c6475;
+  --mc-accent: #8b9dff;
+  --mc-accent-solid: #5f6ee8;
+  --mc-accent-soft: rgba(110, 124, 244, 0.14);
+  --mc-success: #4ade80;
+  --mc-success-soft: rgba(74, 222, 128, 0.12);
+  --mc-warn: #fbbf24;
+  --mc-warn-soft: rgba(251, 191, 36, 0.12);
+  --mc-danger: #f87171;
+  --mc-danger-soft: rgba(248, 113, 113, 0.1);
+  --mc-shadow-dialog: 0 24px 80px rgba(0, 0, 0, 0.6);
+  --mc-shadow-control: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --mc-shadow-control-hover: 0 2px 8px rgba(110, 124, 244, 0.25);
+  --mc-knob: #ffffff;
+  color-scheme: dark;
+}
+
+.theme-light {
+  --mc-bg: #f5f6f8;
+  --mc-panel: #ffffff;
+  --mc-panel-hover: #eef0f4;
+  --mc-elevated: #ffffff;
+  --mc-input: #f1f2f5;
+  --mc-inset: #eaecf1;
+  --mc-border: #e1e4ea;
+  --mc-border-strong: #c9ced8;
+  --mc-text: #171a20;
+  --mc-text-dim: #5b6270;
+  --mc-text-faint: #9aa1ad;
+  --mc-accent: #4f60e0;
+  --mc-accent-solid: #4353d6;
+  --mc-accent-soft: rgba(79, 96, 224, 0.1);
+  --mc-success: #16a34a;
+  --mc-success-soft: rgba(22, 163, 74, 0.1);
+  --mc-warn: #b45309;
+  --mc-warn-soft: rgba(180, 83, 9, 0.08);
+  --mc-danger: #dc2626;
+  --mc-danger-soft: rgba(220, 38, 38, 0.08);
+  --mc-shadow-dialog: 0 24px 64px rgba(23, 26, 32, 0.18);
+  --mc-shadow-control: 0 1px 2px rgba(23, 26, 32, 0.08);
+  --mc-shadow-control-hover: 0 2px 8px rgba(79, 96, 224, 0.22);
+  --mc-knob: #ffffff;
+  color-scheme: light;
+}
