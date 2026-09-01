@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import * as nodeFs from "node:fs";
 import { randomBytes } from "node:crypto";
 import * as path from "node:path";
 import { WEB_HTML } from "./assets.ts";
@@ -129,8 +130,7 @@ function buildState(projectRoot: string, env: NodeJS.ProcessEnv) {
     readFile: (p) => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const fs = require("node:fs") as typeof import("node:fs");
-        return fs.readFileSync(p, "utf8");
+        return nodeFs.readFileSync(p, "utf8");
       } catch {
         return null;
       }

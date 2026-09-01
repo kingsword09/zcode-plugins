@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { ConfigFileInfo, ConfigScope, ModelConfigFile } from "../shared/types.ts";
@@ -69,7 +70,7 @@ export function resolveConfigInfos(
 } {
   const readFile = deps.readFile ?? ((p: string) => {
     try {
-      return require("node:fs").readFileSync(p, "utf8") as string;
+      return fs.readFileSync(p, "utf8");
     } catch {
       return null;
     }
