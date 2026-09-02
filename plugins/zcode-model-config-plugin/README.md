@@ -22,6 +22,40 @@ model / provider configuration — no more hand-editing JSON.
   `modelCatalog` keys are touched — the rest of your config is preserved.
 - `close_model_config` stops the server when you're done.
 
+## Install
+
+Register this repo as a marketplace, then install the plugin — from any directory:
+
+```bash
+# from GitHub (no clone needed)
+zcode plugins marketplace add kingsword09/zcode-plugins
+# …or from a local checkout
+zcode plugins marketplace add /path/to/zcode-plugins
+
+zcode plugins install zcode-model-config@zcode-plugins
+```
+
+Install copies the plugin into `~/.zcode/cli/plugins/cache/` and enables it by default; verify with `zcode plugins list` or the `/plugins` panel in a session.
+
+No build step is needed on the consuming side — the web UI is prebuilt and inlined into the committed `dist/mcp/server.js` bundle.
+
+### Update
+
+```bash
+zcode plugins marketplace update zcode-plugins
+zcode plugins update zcode-model-config@zcode-plugins
+```
+
+Start a new ZCode session afterwards — running sessions keep the old MCP server process.
+
+### Uninstall
+
+```bash
+zcode plugins uninstall zcode-model-config@zcode-plugins
+# or remove the marketplace and every plugin it installed
+zcode plugins marketplace remove zcode-plugins
+```
+
 ## Development
 
 ```bash
