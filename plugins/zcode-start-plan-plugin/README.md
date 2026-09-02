@@ -17,10 +17,36 @@ The trial is desktop-app-only by design: its endpoint (`https://zcode.z.ai/api/v
 
 ## Install
 
+Register this repo as a marketplace, then install the plugin — from any directory:
+
 ```bash
-zcode plugins add kingsword09/zcode-plugins
-# then enable
-zcode plugins enable zcode-start-plan@zcode-plugins
+# from GitHub (no clone needed)
+zcode plugins marketplace add kingsword09/zcode-plugins
+# …or from a local checkout
+zcode plugins marketplace add /path/to/zcode-plugins
+
+zcode plugins install zcode-start-plan@zcode-plugins
+```
+
+Install copies the plugin into `~/.zcode/cli/plugins/cache/` and enables it by default; verify with `zcode plugins list` or the `/plugins` panel in a session.
+
+No `bun install` / `bun run build` is needed on the consuming side — the built `dist/mcp/server.js` bundle and its dependencies are installed as-is.
+
+### Update
+
+```bash
+zcode plugins marketplace update zcode-plugins
+zcode plugins update zcode-start-plan@zcode-plugins
+```
+
+Start a new ZCode session afterwards — running sessions keep the old MCP server process.
+
+### Uninstall
+
+```bash
+zcode plugins uninstall zcode-start-plan@zcode-plugins
+# or remove the marketplace and every plugin it installed
+zcode plugins marketplace remove zcode-plugins
 ```
 
 ## What it provides
