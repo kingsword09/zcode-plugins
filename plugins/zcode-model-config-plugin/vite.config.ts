@@ -1,4 +1,4 @@
-import { defineConfig } from "@voidzero-dev/vite-plus-core";
+import { defineConfig } from "vite-plus";
 import * as path from "node:path";
 import react from "@vitejs/plugin-react";
 import stylex from "@stylexjs/unplugin";

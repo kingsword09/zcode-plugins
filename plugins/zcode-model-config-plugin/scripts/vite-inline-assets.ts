@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { Plugin } from "@voidzero-dev/vite-plus-core";
+import type { Plugin } from "vite-plus";
 
 export interface InlineAssetsOptions {
   outPath: string;

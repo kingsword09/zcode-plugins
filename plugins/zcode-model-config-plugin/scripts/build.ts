@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Drive @voidzero-dev/vite-plus-core (the engine behind `vp`) from a plain script.
-// vite-plus-core doesn't ship a `vp` CLI binary, so we call its `build()` API.
-import { build } from "@voidzero-dev/vite-plus-core";
+// Drive the Vite+ build() API from a plain script (vite-plus ships the `vp`
+// CLI, but this build only needs the programmatic API).
+import { build } from "vite-plus";
 
 const mode = (process.argv[2] ?? "web") as "web" | "node";
 if (mode !== "web" && mode !== "node") {
