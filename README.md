@@ -4,11 +4,7 @@ Unofficial community plugins for the [ZCode CLI](https://github.com/kingsword09/
 
 | Plugin | Description |
 | --- | --- |
-| [`zcode-start-plan`](./plugins/zcode-start-plan-plugin) | Spend the free "ZCode Start Plan" trial quota from the CLI via an MCP tool, with one-time Aliyun captcha bridging. |
 | [`zcode-model-config`](./plugins/zcode-model-config-plugin) | Local web UI (React + StyleX) to edit ZCode CLI model / provider config, with a models.dev catalog for one-click import. |
-
-> [!WARNING]
-> `zcode-start-plan` is an unofficial, community implementation reverse-engineered from the ZCode desktop app. It uses internal `zcode-plan` endpoints that Z.ai has not officially opened to CLI clients, and it drives the Aliyun captcha web SDK outside its intended browser context. Use at your own risk; heavy or abusive usage may trigger risk control on your account. If you rely on ZCode for production work, subscribe to a Coding Plan instead.
 
 ## Install
 
@@ -39,7 +35,6 @@ List what the marketplace offers, then install by fully-qualified id (`<plugin>@
 
 ```bash
 zcode plugins overview                 # see available plugins
-zcode plugins install zcode-start-plan@zcode-plugins
 zcode plugins install zcode-model-config@zcode-plugins
 ```
 
@@ -58,7 +53,7 @@ No `bun install` / `bun run build` is needed on the consuming side: each plugin'
 Remove a single plugin (keeps the marketplace registered):
 
 ```bash
-zcode plugins uninstall zcode-start-plan@zcode-plugins
+zcode plugins uninstall zcode-model-config@zcode-plugins
 ```
 
 Or remove everything this marketplace brought in at once — uninstalling the marketplace removes its installed plugins:
@@ -75,10 +70,10 @@ The marketplace caches a copy of the repo, so upstream changes don't apply autom
 
 ```bash
 zcode plugins marketplace update zcode-plugins   # re-fetch the repo / re-read the local dir
-zcode plugins update zcode-start-plan@zcode-plugins   # refresh installed plugin cache
+zcode plugins update zcode-model-config@zcode-plugins   # refresh installed plugin cache
 ```
 
-Then start a **new** ZCode session — running sessions keep the old MCP server process. For plugin authors iterating locally, see the [plugin README](./plugins/zcode-start-plan-plugin#development) for the full three-step flow (rebuild included).
+Then start a **new** ZCode session — running sessions keep the old MCP server process. For plugin authors iterating locally, see the plugin's own README for the full three-step flow (rebuild included).
 
 ## Development
 
@@ -94,7 +89,7 @@ bun test           # run unit tests
 Per-plugin commands can be run inside `plugins/<name>`, e.g.:
 
 ```bash
-cd plugins/zcode-start-plan-plugin
+cd plugins/zcode-model-config-plugin
 bun run build
 bun test
 ```
@@ -105,13 +100,12 @@ bun test
 .
 ├── .claude-plugin/marketplace.json  # marketplace manifest (this is the file the CLI discovers)
 ├── plugins/
-│   ├── zcode-start-plan-plugin/     # one directory per plugin (bun workspace)
-│   │   ├── .zcode-plugin/plugin.json  # per-plugin manifest (name, version, MCP server, commands, skills)
-│   │   ├── commands/                # slash commands
-│   │   ├── skills/                  # agent skills
-│   │   ├── src/                     # TypeScript sources
-│   │   └── dist/                    # build output (committed; the runtime runs this)
-│   └── zcode-model-config-plugin/
+│   └── zcode-model-config-plugin/   # one directory per plugin (bun workspace)
+│       ├── .zcode-plugin/plugin.json  # per-plugin manifest (name, version, MCP server, commands, skills)
+│       ├── commands/                # slash commands
+│       ├── skills/                  # agent skills
+│       ├── src/                     # TypeScript sources
+│       └── dist/                    # build output (committed; the runtime runs this)
 └── package.json                     # bun workspace root
 ```
 
