@@ -56,7 +56,7 @@ plugins/<name>-plugin/
 
 ### 2. package.json
 
-Model it on `plugins/zcode-start-plan-plugin/package.json`:
+Model it on `plugins/zcode-model-config-plugin/package.json`:
 
 - `name`: `@zcode-plugins/<name>-plugin`, `"private": true`, `"type": "module"`, `"license": "MIT"`.
 - `main`: `./dist/mcp/server.js` (if there is an MCP server).
