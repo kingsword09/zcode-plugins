@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer as httpServer } from "node:http";
@@ -16,6 +16,9 @@ import { createBrowserServer } from "../src/mcp/server.ts";
 import { pageTargetId } from "../src/mcp/runtime.ts";
 import type { BrowserInfo } from "../src/mcp/terminal.ts";
 import { RecordingManager, type RecordingJob } from "../src/mcp/recording.ts";
+
+// Each integration test spans several browser actions on shared CI runners.
+setDefaultTimeout(30_000);
 
 const executable = process.env.TB_TEST_BROWSER ?? chromium.executablePath();
 const available = existsSync(executable);
@@ -170,6 +173,11 @@ suite("MCP through real Chromium/CDP", () => {
     client = connected.client;
     closeApplication = connected.close;
   }, 30_000);
+
+  beforeEach(async () => {
+    // Keep the operated page foregrounded so Chromium does not throttle its frames.
+    await page1.bringToFront();
+  });
 
   afterAll(async () => {
     await closeApplication?.();
@@ -397,10 +405,15 @@ suite("MCP through real Chromium/CDP", () => {
       const start = await call("browser_record", { action: "start", maxDurationMs: 1_600, fps: 8, showCursor: false, viewport: { width: 320, height: 320 } });
       id = start.recording.id;
       const ready = Date.now() + 10_000;
-      while ((await call("browser_record", { action: "status", id })).recording.phase === "preparing" && Date.now() < ready) await new Promise((resolve) => setTimeout(resolve, 50));
+      let job: RecordingJob;
+      do {
+        job = (await call("browser_record", { action: "status", id })).recording;
+        if (job.phase !== "preparing") break;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      } while (Date.now() < ready);
+      expect(job.phase).toBe("capturing");
       await new Promise((resolve) => setTimeout(resolve, 250));
       await page1.evaluate("document.querySelector('#recording-colors').style.background='#2176dd'");
-      let job: RecordingJob;
       const deadline = Date.now() + 20_000;
       do {
         await new Promise((resolve) => setTimeout(resolve, 100));

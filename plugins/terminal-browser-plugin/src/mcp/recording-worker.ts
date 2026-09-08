@@ -68,19 +68,19 @@ export async function runRecording(config: RecordingConfig) {
       const targetPage = page;
       removeCursor = () => targetPage.evaluate(`document.getElementById(${JSON.stringify(cursorId)})?.dispatchEvent(new Event('tb-cleanup'))`).catch(() => {});
     }
-    let latest = "";
+    // Capture after viewport setup before screencast can deliver an older surface.
+    const seed = await cdp.send("Page.captureScreenshot", { format: "jpeg", quality: options.quality, clip: { x: 0, y: 0, width: viewport.width, height: viewport.height, scale: width / viewport.width }, captureBeyondViewport: false });
+    let latest = seed.data;
     cdp.on("Page.screencastFrame", (frame) => {
       latest = frame.data;
       void cdp!.send("Page.screencastFrameAck", { sessionId: frame.sessionId }).catch(() => {});
     });
     await cdp.send("Page.startScreencast", { format: "jpeg", quality: options.quality, maxWidth: width, maxHeight: height });
-    const seed = await cdp.send("Page.captureScreenshot", { format: "jpeg", quality: options.quality, clip: { x: 0, y: 0, width: viewport.width, height: viewport.height, scale: width / viewport.width }, captureBeyondViewport: false });
-    latest ||= seed.data;
     const frames: RecordingFrame[] = [{ file: "frame-00000.jpg", at: 0 }];
-    const initialFrame = Buffer.from(latest, "base64");
+    const initialFrame = Buffer.from(seed.data, "base64");
     await fs.writeFile(path.join(directory, frames[0]!.file), initialFrame, { flag: "wx", mode: 0o600 });
     const start = Date.now();
-    let lastFrame = latest;
+    let lastFrame = seed.data;
     let bytesWritten = initialFrame.byteLength;
     let actionsFinished: number | undefined;
     let actionError: unknown;
