@@ -481,6 +481,18 @@ export const styles = stylex.create({
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
     borderBottomColor: colors.border,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  bannerDismiss: {
+    border: "none",
+    background: "transparent",
+    color: "inherit",
+    cursor: "pointer",
+    padding: "0 6px",
+    fontSize: "14px",
+    lineHeight: 1,
   },
   bannerOk: {
     backgroundColor: colors.successSoft,

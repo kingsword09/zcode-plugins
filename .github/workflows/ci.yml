@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main]
   push:
@@ -12,37 +13,73 @@ concurrency:
 
 jobs:
   check:
-    name: Build, typecheck & test (Node ${{ matrix.node }})
+    name: Build, typecheck & test (${{ matrix.os }}, Node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        node: [24]
-        include:
-          # fastest feedback on PRs; full matrix only for pushes to main
+        # Keep PR feedback on Linux; also cover macOS on pushes to main.
+        os: ${{ fromJSON(github.event_name == 'push' && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
+        node: [24, 26]
+        exclude:
           - os: macos-latest
-            node: 24
-            if: github.event_name == 'push'
+            node: 26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ matrix.node }}
+          # Playwright 1.59.1's browser ZIP extraction stalls under Node 26.
+          node-version: 24
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: latest
+          bun-version: 1.4.1
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install browser for integration tests
+        working-directory: plugins/terminal-browser-plugin
+        timeout-minutes: 10
+        run: bunx playwright-core install --with-deps chromium
+
+      - name: Select Node version for build and tests
+        if: matrix.node != 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+
       - name: Build all plugins
         run: bun run build
+
+      - name: Legacy model-config bundle is up to date
+        run: |
+          git diff --exit-code -- plugins/zcode-model-config-plugin/dist
+          test -z "$(git ls-files --others --exclude-standard -- plugins/zcode-model-config-plugin/dist)"
+          test -f plugins/zcode-model-config-plugin/dist/mcp/server.js
+          test -z "$(git ls-files -- plugins/terminal-browser-plugin/dist)"
 
       - name: Typecheck
         run: bun run typecheck
 
       - name: Test
         run: bun test
+
+      - name: Package terminal-browser
+        working-directory: plugins/terminal-browser-plugin
+        run: bun run package
+
+      - name: Verify extracted release with real Chromium
+        working-directory: plugins/terminal-browser-plugin
+        run: bun run verify:package
+
+      - name: Upload verified release candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: terminal-browser-${{ matrix.os }}-node${{ matrix.node }}
+          path: .cache/releases/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14

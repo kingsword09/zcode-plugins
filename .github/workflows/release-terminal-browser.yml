@@ -1,0 +1,119 @@
+name: Release terminal-browser
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Plugin version to publish (must match plugin.json)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: release-terminal-browser
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.1
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build and typecheck
+        run: |
+          bun run build
+          bun run typecheck
+
+      - name: Install test browser
+        working-directory: plugins/terminal-browser-plugin
+        run: bunx playwright-core install --with-deps chromium
+
+      - name: Test source and create release ZIP
+        run: |
+          bun test
+          bun run --filter '@zcode-plugins/terminal-browser-plugin' package
+
+      - name: Verify release ZIP
+        working-directory: plugins/terminal-browser-plugin
+        run: bun run verify:package
+
+      - name: Check requested version
+        id: release
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          bun -e 'const r = await Bun.file(".cache/releases/release.json").json(); if (r.version !== process.env.REQUESTED_VERSION) throw new Error("Requested version does not match plugin.json"); console.log(Object.entries({tag:r.tag,file:r.file,version:r.version}).map(([key,value])=>key+"="+value).join("\n"))' >> "$GITHUB_OUTPUT"
+
+      - name: Publish versioned assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_FILE: ${{ steps.release.outputs.file }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              ".cache/releases/$RELEASE_FILE" \
+              ".cache/releases/$RELEASE_FILE.sha256" \
+              ".cache/releases/release.json" \
+              --target "$GITHUB_SHA" --title "$RELEASE_TAG" \
+              --notes-file plugins/terminal-browser-plugin/RELEASE.md \
+              --latest=false
+          fi
+
+      - name: Verify download and prepare marketplace update
+        env:
+          RELEASE_FILE: ${{ steps.release.outputs.file }}
+        run: |
+          bun plugins/terminal-browser-plugin/scripts/release.ts promote \
+            ".cache/releases/$RELEASE_FILE" --repository "$GITHUB_REPOSITORY"
+
+      - name: Propose marketplace update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          if git diff --quiet -- .claude-plugin/marketplace.json; then
+            exit 0
+          fi
+          release_branch="release/terminal-browser-$RELEASE_VERSION"
+          if test -n "$(gh pr list --head "$release_branch" --state open --json number --jq '.[0].number // empty')"; then
+            gh workflow run ci.yml --ref "$release_branch"
+            exit 0
+          fi
+          if git ls-remote --exit-code --heads origin "$release_branch" > /dev/null; then
+            git fetch origin "$release_branch"
+            git show FETCH_HEAD:.claude-plugin/marketplace.json > .cache/marketplace-published.json
+            cmp .claude-plugin/marketplace.json .cache/marketplace-published.json
+          else
+            git switch -c "$release_branch"
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add .claude-plugin/marketplace.json
+            git commit -m "chore: publish terminal-browser $RELEASE_VERSION in marketplace"
+            git push origin "$release_branch"
+          fi
+          gh pr create --base main --head "$release_branch" \
+            --title "Publish terminal-browser $RELEASE_VERSION" \
+            --body-file plugins/terminal-browser-plugin/RELEASE.md
+          # GITHUB_TOKEN-created PRs do not trigger pull_request workflows.
+          gh workflow run ci.yml --ref "$release_branch"

@@ -68,6 +68,9 @@ export function readConfigFile(filePath: string): ReadConfigResult {
  * - validates via zod before touching disk
  * - writes `<path>.bak` next to the original when it existed
  * - tmp-file + rename, 2-space indent, trailing newline, mode 0600
+ *   (both for the config itself and the backup — a pre-existing 0644 .bak
+ *   must not leak API keys, so the backup is also replaced atomically and
+ *   symlinked backup paths are refused rather than followed)
  */
 export function saveModelConfig(
   filePath: string,
@@ -83,18 +86,31 @@ export function saveModelConfig(
   let backupPath: string | null = null;
   if (existing.raw !== null) {
     backupPath = `${filePath}.bak`;
-    fs.writeFileSync(backupPath, existing.raw, { mode: 0o600 });
+    writeSecretAtomic(backupPath, existing.raw);
   }
 
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  const tmpPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
-  fs.writeFileSync(tmpPath, `${JSON.stringify(merged, null, 2)}\n`, { mode: 0o600 });
-  fs.renameSync(tmpPath, filePath);
-  try {
-    fs.chmodSync(filePath, 0o600);
-  } catch {
-    // chmod can fail on exotic filesystems; rename already carried 0600.
-  }
+  writeSecretAtomic(filePath, `${JSON.stringify(merged, null, 2)}\n`);
 
   return { ok: true, path: filePath, backupPath };
+}
+
+/**
+ * Atomic 0600 write: write to a private temp file in the same directory,
+ * then rename over the target. rename replaces the destination inode, so
+ * a pre-existing file's loose permissions (or a symlink planted at the
+ * target) never end up holding secret content.
+ */
+function writeSecretAtomic(targetPath: string, content: string): void {
+  const tmpPath = `${targetPath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  fs.writeFileSync(tmpPath, content, { mode: 0o600 });
+  try {
+    fs.renameSync(tmpPath, targetPath);
+  } catch (error) {
+    fs.rmSync(tmpPath, { force: true });
+    throw new ConfigStoreError(
+      `failed to replace ${targetPath}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
 }

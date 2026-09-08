@@ -14,7 +14,7 @@ Read this before creating or modifying a plugin.
 │   ├── commands/*.md                # slash commands
 │   ├── skills/<name>/SKILL.md       # agent skills
 │   ├── src/                         # TypeScript sources
-│   └── dist/                        # build output — COMMITTED (the runtime runs this)
+│   └── dist/                        # runtime build output; see distribution rules below
 ├── package.json                     # bun workspace root ("workspaces": ["plugins/*"])
 └── tsconfig.base.json               # shared strict TS config (ES2023, Bundler resolution)
 ```
@@ -23,7 +23,7 @@ Two manifest layers, do not confuse them:
 
 | File | Read by | Purpose |
 | --- | --- | --- |
-| `.claude-plugin/marketplace.json` (repo root) | `zcode plugins marketplace add` | Declares the marketplace name (the `@marketplace` half of plugin ids) and the list of plugins with their source directories. |
+| `.claude-plugin/marketplace.json` (repo root) | `zcode plugins marketplace add` | Declares the marketplace name and plugins with directory or verified release ZIP sources. |
 | `plugins/<dir>/.zcode-plugin/plugin.json` | plugin runtime at load time | Declares the plugin name, version, MCP servers, commands and skills directories. |
 
 The CLI looks for the marketplace manifest only at
@@ -77,6 +77,11 @@ Minimum required fields: `name` (the plugin id used in `<plugin>@<marketplace>`)
 
 ### 4. Register in the marketplace manifest
 
+For a directory source, commit the complete runtime. For a Release ZIP source,
+publish and verify the archive before adding the catalog entry. terminal-browser
+uses the release workflow described below; its unpublished listing metadata
+lives in `plugins/terminal-browser-plugin/marketplace-entry.json`.
+
 Add an entry to `plugins` in `.claude-plugin/marketplace.json`:
 
 ```json
@@ -103,10 +108,9 @@ Pattern used by both existing plugins (`src/mcp/server.ts`):
 - `@modelcontextprotocol/sdk` `McpServer` + `StdioServerTransport`, tools
   registered with `server.registerTool(name, { description, inputSchema }, handler)`
   using zod schemas.
-- Keep the bundle **self-contained**: bundle all npm dependencies (tsdown does
-  this by default; with the vite-plus-core node build, mark `@modelcontextprotocol/sdk/*`,
-  `zod`, and `node:*` as external — those packages are installed into the
-  plugin's `node_modules` in the cache). The point is: nothing outside
+- Keep the bundle **self-contained**: bundle npm dependencies or include their
+  required runtime files in the release ZIP. The CLI does not run npm install
+  or build steps. Only Node built-ins can be assumed available. Nothing outside
   `dist/`, `node_modules/`, and the manifest needs to exist on a user machine.
 - If the plugin ships a web UI, inline it: build the UI to a single HTML/JS/CSS
   string module (see `plugins/zcode-model-config-plugin/scripts/build.ts` and
@@ -160,6 +164,18 @@ zcode plugins validate <name>@zcode-plugins   # after installing once (see below
 
 Use the local zcode-cli checkout, not the global install:
 
+For terminal-browser, use its isolated ZIP verification and development catalog:
+
+```bash
+bun run package:terminal-browser
+bun plugins/terminal-browser-plugin/scripts/verify-package.ts --cli ../zcode-cli/bin/zcode.js
+bun run marketplace:dev
+node ../zcode-cli/bin/zcode.js plugins marketplace add "$PWD/.cache/marketplace" --yes
+node ../zcode-cli/bin/zcode.js plugins install terminal-browser@zcode-plugins-dev --yes
+```
+
+For legacy directory-source plugins:
+
 ```bash
 # from this repo root; ../zcode-cli must exist
 node ../zcode-cli/bin/zcode.js plugins marketplace update zcode-plugins
@@ -172,6 +188,15 @@ Installed plugins are **copied** (not symlinked) to
 session to load it — running sessions keep old MCP server processes.
 
 ## Modifying an existing plugin
+
+terminal-browser: rebuild, run `package` and `verify:package`, and use
+`marketplace:dev` for local installation under `zcode-plugins-dev`. Bump its
+package/manifest versions together before release. After merging to `main`,
+the `release-terminal-browser.yml` workflow publishes a verified versioned ZIP
+and opens a marketplace update PR. Never insert an unavailable release URL or
+overwrite existing release assets. The workflow must be allowed to create PRs.
+
+For legacy directory-source plugins:
 
 After editing plugin source, the full update flow is three steps (markdown-only
 changes to `commands/` or `skills/` skip step 1):
@@ -187,13 +212,14 @@ Then start a new zcode session.
 
 ## Conventions and gotchas
 
-- `dist/` is git-ignored for normal projects but plugin bundles are committed
-  so consumers never need Bun or a build step. Generated web assets
-  (`plugins/*/src/ui/assets.ts`) stay ignored. Exception: if a bundle grows
-  past ~1 MB with no dependency install story, reconsider what gets inlined.
-- Version fields live in **three** places that must move together:
-  `.zcode-plugin/plugin.json`, the plugin `package.json`, and the marketplace
-  manifest entry. The install cache path is keyed by the plugin.json version.
+- terminal-browser's `dist/` and release ZIPs are ignored; CI builds and verifies
+  them. zcode-model-config retains its committed bundle and directory source.
+  Generated web assets (`plugins/*/src/ui/assets.ts`) stay ignored.
+- `.zcode-plugin/plugin.json` and the plugin `package.json` versions move
+  together. For directory sources the marketplace version moves with them;
+  for ZIP sources it changes only after publication and checksum verification.
+  The install cache path is keyed by the plugin.json version. Commands and skills
+  inside a ZIP also require a new release to reach consumers.
 - Plugin ids are `<name>@zcode-plugins` — the marketplace half comes from the
   top-level `name` in `.claude-plugin/marketplace.json` (`zcode-plugins`).
 - `bun run --filter '*' build` at the root is the supported fan-out; `bun

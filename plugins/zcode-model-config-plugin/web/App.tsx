@@ -36,12 +36,54 @@ type EditorAction =
   | { type: "loaded"; state: StateDto["state"] }
   | { type: "scope"; scope: Scope }
   | { type: "select"; providerId: string | null }
-  | { type: "upsertProvider"; providerId: string; provider: ProviderEntry }
+  | { type: "upsertProvider"; providerId: string; provider: ProviderEntry; previousModels?: string[] | null }
   | { type: "deleteProvider"; providerId: string }
   | { type: "patchConfig"; config: ModelConfigFile };
 
 function cloneConfig(config: ModelConfigFile): ModelConfigFile {
   return JSON.parse(JSON.stringify(config ?? {})) as ModelConfigFile;
+}
+
+/**
+ * Keep model.main / model. lite pointing at real entries. When a provider is
+ * deleted, references to any of its models dangle; when a model is deleted
+ * or renamed (detected via previousModels), the reference dangles too.
+ * Renames re-point instead of clearing when the new id keeps the reference
+ * resolvable.
+ */
+function reconcileModelRefs(
+  config: ModelConfigFile,
+  providerId: string,
+  previousModels: string[] | null,
+): void {
+  const model = config.model;
+  if (!model) return;
+  const roleKeys = ["main", "lite"] as const;
+  const refProvider = (ref: string | undefined) => (ref ?? "").split("/")[0];
+  const refModel = (ref: string | undefined) => (ref ?? "").split("/")[1];
+  const models = config.provider?.[providerId]?.models ?? {};
+  const modelIds = new Set(Object.keys(models));
+  for (const role of roleKeys) {
+    const ref = model[role];
+    if (ref === undefined) continue;
+    if (refProvider(ref) !== providerId) continue;
+    if (modelIds.has(refModel(ref) ?? "")) continue;
+    // dangles: re-point to the rename target when exactly one model was
+    // added and one removed (a rename), otherwise clear it
+    if (previousModels && previousModels.length === modelIds.size + 1) {
+      const removed = previousModels.find((m) => !modelIds.has(m));
+      const added = [...modelIds].find((m) => !previousModels!.includes(m));
+      if (removed === refModel(ref) && added) {
+        model[role] = `${providerId}/${added}`;
+        continue;
+      }
+    }
+    model[role] = undefined;
+  }
+}
+
+function clearDanglingModelRefs(config: ModelConfigFile, providerId: string, previousModels: string[] | null): void {
+  reconcileModelRefs(config, providerId, previousModels);
 }
 
 function reducer(state: EditorState, action: EditorAction): EditorState {
@@ -69,6 +111,7 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
     case "upsertProvider": {
       const config = cloneConfig(state.configs[state.scope]);
       config.provider = { ...(config.provider ?? {}), [action.providerId]: action.provider };
+      reconcileModelRefs(config, action.providerId, action.previousModels ?? null);
       return { ...state, configs: { ...state.configs, [state.scope]: config }, selectedProviderId: action.providerId };
     }
     case "deleteProvider": {
@@ -76,6 +119,9 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
       if (config.provider) {
         delete config.provider[action.providerId];
       }
+      // Keep model roles consistent: references to the deleted provider's
+      // models (or the provider itself as a model host) would dangle.
+      clearDanglingModelRefs(config, action.providerId, null);
       const remaining = Object.keys(config.provider ?? {});
       return {
         ...state,
@@ -102,6 +148,9 @@ export function App(): React.ReactElement {
     selectedProviderId: null,
   });
   const [error, setError] = useState<string | null>(null);
+  // Save failures are recoverable: keep the editor mounted and surface the
+  // failure as a dismissible banner instead of swapping to a dead-end page.
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [addModelOpen, setAddModelOpen] = useState(false);
   const [addProviderOpen, setAddProviderOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -147,12 +196,13 @@ export function App(): React.ReactElement {
 
   const onSave = useCallback(async () => {
     setSaveOpen(false);
+    setSaveError(null);
     try {
       const result = await saveConfig(state.scope, config);
       setSavedMessage(t("save.done", { path: result.path, backup: result.backupPath ? t("save.backupSuffix", { path: result.backupPath }) : "" }));
       setTimeout(() => setSavedMessage(null), 6000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setSaveError(err instanceof Error ? err.message : String(err));
     }
   }, [config, state.scope]);
 
@@ -250,6 +300,19 @@ export function App(): React.ReactElement {
         </div>
       ) : null}
       {savedMessage ? <div {...stylex.props(styles.bannerOk)}>{savedMessage}</div> : null}
+      {saveError ? (
+        <div {...stylex.props(styles.bannerWarn)}>
+          {saveError}
+          <button
+            type="button"
+            {...stylex.props(styles.buttonGhost, styles.bannerDismiss)}
+            aria-label={t("action.dismiss")}
+            onClick={() => setSaveError(null)}
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
 
       <main {...stylex.props(styles.main)}>
         <ProviderSidebar
@@ -274,7 +337,14 @@ export function App(): React.ReactElement {
           models={selectedProvider?.models ?? {}}
           onChange={(provider) => {
             if (state.selectedProviderId) {
-              dispatch({ type: "upsertProvider", providerId: state.selectedProviderId, provider });
+              dispatch({
+                type: "upsertProvider",
+                providerId: state.selectedProviderId,
+                provider,
+                previousModels: selectedProvider?.models
+                  ? Object.keys(selectedProvider.models)
+                  : null,
+              });
             }
           }}
         />
@@ -342,6 +412,7 @@ function ModelRoleSelect(props: {
         options={options}
         placeholder={t("select.notSet")}
         ariaLabel={props.label}
+        allowUnset
       />
     </div>
   );

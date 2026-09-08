@@ -23,6 +23,9 @@ export function Select(props: {
   placeholder?: string;
   wide?: boolean;
   ariaLabel?: string;
+  /** Prepend a "(not set)" option that commits the empty string, so a
+   *  previously chosen value can be cleared again. */
+  allowUnset?: boolean;
 }): React.ReactElement {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -31,12 +34,20 @@ export function Select(props: {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const allOptions = useMemo(
+    () =>
+      props.allowUnset
+        ? [{ value: "", label: t("select.notSet") }, ...props.options]
+        : props.options,
+    [props.allowUnset, props.options],
+  );
+
   const selected = useMemo(() => props.options.find((o) => o.value === props.value), [props.options, props.value]);
-  const flat = useMemo(() => props.options.filter((o) => !o.group), [props.options]);
+  const flat = useMemo(() => allOptions.filter((o) => !o.group), [allOptions]);
   // groups preserved in original order
   const groups = useMemo(() => {
     const out: { group: string; items: SelectOption[] }[] = [];
-    for (const o of props.options) {
+    for (const o of allOptions) {
       if (o.group) {
         let g = out.find((x) => x.group === o.group);
         if (!g) {
@@ -47,7 +58,7 @@ export function Select(props: {
       }
     }
     return { grouped: out, ungrouped: flat };
-  }, [props.options, flat]);
+  }, [allOptions, flat]);
 
   useEffect(() => {
     if (!open) return;
@@ -85,13 +96,13 @@ export function Select(props: {
     if (!open) return;
     menuRef.current?.focus();
     if (selected) {
-      const idx = props.options.findIndex((o) => o.value === props.value);
+      const idx = allOptions.findIndex((o) => o.value === props.value);
       setActiveIndex(idx);
     }
-  }, [open, props.options, props.value, selected]);
+  }, [open, allOptions, props.value, selected]);
 
   const commit = (index: number) => {
-    const opt = props.options[index];
+    const opt = allOptions[index];
     if (!opt) return;
     props.onChange(opt.value);
     setOpen(false);
@@ -110,7 +121,7 @@ export function Select(props: {
       setOpen(false);
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
-      setActiveIndex((i) => Math.min(i + 1, props.options.length - 1));
+      setActiveIndex((i) => Math.min(i + 1, allOptions.length - 1));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setActiveIndex((i) => Math.max(i - 1, 0));
@@ -121,7 +132,7 @@ export function Select(props: {
   };
 
   const renderOption = (opt: SelectOption) => {
-    const idx = props.options.indexOf(opt);
+    const idx = allOptions.indexOf(opt);
     const isActive = idx === activeIndex;
     const isSelected = opt.value === props.value;
     return (
@@ -181,7 +192,7 @@ export function Select(props: {
               width: menuPos.width,
             }}
           >
-            {props.options.length === 0 ? (
+            {allOptions.length === 0 ? (
               <div {...stylex.props(styles.menuEmpty)}>{t("select.empty")}</div>
             ) : (
               <>
