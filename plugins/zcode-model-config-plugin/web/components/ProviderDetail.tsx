@@ -226,9 +226,15 @@ export function ProviderDetail(props: {
           defaultValue={JSON.stringify(provider, null, 2)}
           onBlur={(event) => {
             try {
-              const parsed = JSON.parse(event.target.value) as ProviderEntry;
+              const parsed = JSON.parse(event.target.value) as unknown;
+              // A provider entry must be a plain object — JSON.parse happily
+              // yields null / arrays / scalars that would corrupt state.
+              if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+                setJsonError("Provider JSON must be an object");
+                return;
+              }
               setJsonError(null);
-              props.onChange(parsed);
+              props.onChange(parsed as ProviderEntry);
             } catch (error) {
               setJsonError(error instanceof Error ? error.message : String(error));
             }

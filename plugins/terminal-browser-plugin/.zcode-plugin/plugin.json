@@ -1,0 +1,17 @@
+{
+  "name": "terminal-browser",
+  "version": "0.6.0",
+  "description": "Live terminal browser control with exact tab routing, scoped and iframe locators, uploads, visual diffs, responsive captures, network diagnostics, and durable recording jobs. Wraps terminal-browser; unofficial.",
+  "author": { "name": "kingsword09" },
+  "license": "MIT",
+  "mcpServers": {
+    "terminal-browser": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${ZCODE_PLUGIN_ROOT}/dist/mcp/server.js"],
+      "env": {}
+    }
+  },
+  "commands": "commands",
+  "skills": "skills"
+}

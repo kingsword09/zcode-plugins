@@ -1,0 +1,9 @@
+{
+  "description": "Live terminal browser control with exact tab routing, scoped and iframe locators, uploads, visual diffs, responsive captures, network diagnostics, and durable recording jobs. Wraps terminal-browser; /tb command included. Unofficial.",
+  "description_i18n": {
+    "en": "Live terminal browser control with exact tab routing, scoped and iframe locators, uploads, visual diffs, responsive captures, network diagnostics, and durable recording jobs. Wraps terminal-browser; /tb command included. Unofficial.",
+    "zh-CN": "在终端对话旁操作实时浏览器：精确标签页定位、作用域与 iframe 定位器、文件上传、截图差异、响应式截图、网络诊断及可跨 MCP 重启恢复的录制任务。封装 terminal-browser，附带 /tb 命令。非官方实现。"
+  },
+  "category": "browser",
+  "keywords": ["browser", "terminal-browser", "preview", "split-pane", "kitty-graphics", "visual-testing", "recording", "mcp"]
+}

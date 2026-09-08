@@ -104,6 +104,46 @@ function cryptoSubtleEqual(a: Buffer, b: Buffer): boolean {
   return diff === 0;
 }
 
+/**
+ * Request guard: the UI serves the user's API keys and a write token, so
+ * every request must come from the loopback UI itself —
+ *  - Host must be exactly 127.0.0.1:<port> or localhost:<port> (DNS
+ *    rebinding sends a different Host),
+ *  - state-changing requests (POST) must carry no Origin or one of the
+ *    loopback origins (cross-site form posts carry the attacker's origin),
+ *  - every /api/* request must echo the instance token. The HTML page
+ *    embeds the token; anything that cannot produce it is not the UI.
+ */
+function requestGuard(
+  request: IncomingMessage,
+  url: URL,
+  port: number,
+  token: string,
+): { ok: true } | { ok: false; status: number; error: string } {
+  const host = String(request.headers.host ?? "");
+  const allowedHosts = [`127.0.0.1:${port}`, `localhost:${port}`];
+  if (!allowedHosts.includes(host)) {
+    return { ok: false, status: 403, error: "unrecognized Host header" };
+  }
+  const isApi = url.pathname.startsWith("/api/");
+  if (request.method === "POST") {
+    const origin = request.headers.origin === undefined ? null : String(request.headers.origin);
+    if (origin !== null) {
+      const allowedOrigins = [`http://127.0.0.1:${port}`, `http://localhost:${port}`];
+      if (!allowedOrigins.includes(origin)) {
+        return { ok: false, status: 403, error: "cross-origin request rejected" };
+      }
+    }
+  }
+  if (isApi) {
+    const headerToken = String(request.headers["x-config-token"] ?? "");
+    if (!headerToken || !timingSafeEqual(headerToken, token)) {
+      return { ok: false, status: 403, error: "missing or invalid config token" };
+    }
+  }
+  return { ok: true };
+}
+
 export interface StartUiOptions {
   port?: number;
   projectRoot: string;
@@ -113,11 +153,12 @@ export interface StartUiOptions {
 
 /**
  * UI locale follows the CLI: the `ui.locale` key of the user config wins
- * (e.g. "zh-CN" / "en-US"), falling back to the environment LANG, then "en".
+ * (e.g. "zh-CN" / "en-US"; "auto" means "follow the environment"), falling
+ * back to the environment LANG, then "en".
  */
 function detectLocale(env: NodeJS.ProcessEnv, userConfig: Record<string, unknown> | null): "zh-CN" | "en" {
   const uiLocale = (userConfig as { ui?: { locale?: unknown } } | null)?.ui?.locale;
-  if (typeof uiLocale === "string" && uiLocale.length > 0) {
+  if (typeof uiLocale === "string" && uiLocale.length > 0 && uiLocale.toLowerCase() !== "auto") {
     return uiLocale.toLowerCase().startsWith("zh") ? "zh-CN" : "en";
   }
   const lang = `${env.LANG ?? ""} ${env.LANGUAGE ?? ""}`.toLowerCase();
@@ -163,9 +204,25 @@ export async function startUiServer(options: StartUiOptions): Promise<UiServerHa
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     try {
-      if (request.method === "GET" && url.pathname === "/") {
+      if (url.pathname === "/") {
+        if (request.method !== "GET") {
+          sendJson(response, 405, { ok: false, error: "method not allowed" });
+          return;
+        }
+        const host = String(request.headers.host ?? "");
+        if (host !== `127.0.0.1:${preferredPort}` && host !== `localhost:${preferredPort}`) {
+          sendJson(response, 403, { ok: false, error: "unrecognized Host header" });
+          return;
+        }
         response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
         response.end(WEB_HTML.replace("__CONFIG_TOKEN__", token));
+        return;
+      }
+      // Every API route goes through the guard: loopback Host, loopback
+      // Origin for state-changing methods, and the instance token.
+      const guard = requestGuard(request, url, preferredPort, token);
+      if (!guard.ok) {
+        sendJson(response, guard.status, { ok: false, error: guard.error });
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/state") {
@@ -184,11 +241,6 @@ export async function startUiServer(options: StartUiOptions): Promise<UiServerHa
         return;
       }
       if (request.method === "POST" && url.pathname === "/api/save") {
-        const headerToken = String(request.headers["x-config-token"] ?? "");
-        if (!timingSafeEqual(headerToken, token)) {
-          sendJson(response, 403, { ok: false, error: "invalid config token" });
-          return;
-        }
         const body = await readJsonBody(request);
         const scope = body.scope as ConfigScope;
         const config = body.config as ModelConfigFile;

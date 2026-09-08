@@ -27,7 +27,7 @@ const providerOptionsSchema = z
   })
   .passthrough();
 
-const modelRefSchema = z.string().refine((value) => /^[^/\s]+\/[^/\s]+/.test(value) && !value.includes(" "), {
+const modelRefSchema = z.string().refine((value) => /^[^/\s]+\/[^/\s]+$/.test(value) && !value.includes(" "), {
   message: "Model references must use provider/model format",
 });
 

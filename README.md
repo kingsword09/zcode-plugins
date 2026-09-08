@@ -5,6 +5,7 @@ Unofficial community plugins for the [ZCode CLI](https://github.com/kingsword09/
 | Plugin | Description |
 | --- | --- |
 | [`zcode-model-config`](./plugins/zcode-model-config-plugin) | Local web UI (React + StyleX) to edit ZCode CLI model / provider config, with a models.dev catalog for one-click import. |
+| [`terminal-browser`](./plugins/terminal-browser-plugin) | Live Chromium pane with exact tab routing, scoped/iframe actions, uploads, visual diffs, responsive screenshots, network/axe/CPU diagnostics, and durable recording jobs. Distributed as a Release ZIP; the first public listing is added after publication. |
 
 ## Install
 
@@ -27,7 +28,10 @@ git clone https://github.com/kingsword09/zcode-plugins.git
 zcode plugins marketplace add /path/to/zcode-plugins
 ```
 
-A local marketplace stays linked to that directory — after editing plugin source there, `zcode plugins marketplace update zcode-plugins` picks up your changes (see [Update](#update)).
+A local marketplace stays linked to that directory. Its catalog describes
+published versions: a ZIP entry still downloads the published ZIP. To install
+terminal-browser from local source, build the separate development marketplace
+described below.
 
 ### Install and enable a plugin
 
@@ -46,7 +50,9 @@ zcode plugins list
 
 You can also manage enable/disable state interactively with the `/plugins` panel inside a ZCode session.
 
-No `bun install` / `bun run build` is needed on the consuming side: each plugin's `dist/mcp/server.js` bundle and its dependencies are committed and installed as-is.
+Consumers need no `bun install` or build step. `zcode-model-config` retains its
+committed bundle. `terminal-browser` includes its runtime dependencies in a
+versioned GitHub Release ZIP, verified by the SHA-256 in the marketplace entry.
 
 ## Uninstall
 
@@ -94,6 +100,46 @@ bun run build
 bun test
 ```
 
+For terminal-browser, build and install a local release candidate under a
+separate marketplace name:
+
+```bash
+bun run build
+bun run marketplace:dev
+node ../zcode-cli/bin/zcode.js plugins marketplace add "$PWD/.cache/marketplace" --yes
+node ../zcode-cli/bin/zcode.js plugins install terminal-browser@zcode-plugins-dev --yes
+```
+
+The generated marketplace contains only packaged runtime files. Rebuild and
+rerun `marketplace:dev`, then update `zcode-plugins-dev` and its installed plugin
+to test another revision. Select one terminal-browser plugin in the ZCode
+plugin panel when both development and published copies are installed.
+
+### Release ZIPs
+
+terminal-browser build output is ignored by Git. `bun run package:terminal-browser`
+creates `.cache/releases/terminal-browser-<version>.zip`, its `.sha256` file,
+and `release.json`. CI tests the source and the extracted ZIP with real Chromium.
+The ZIP contains the server, worker, required Playwright runtime, axe script,
+portable recording codecs, commands, skills, README, and licenses. Recording
+requires no system FFmpeg or ffprobe. It excludes TypeScript declarations and
+Playwright's Trace Viewer web assets.
+Files larger than 64 KiB use uncompressed ZIP entries for compatibility with
+the ZCode 3.11.2 installer on Node 26; smaller entries remain compressed.
+
+After merging source changes into `main`, run the **Release terminal-browser**
+workflow with the plugin version. It builds and verifies the ZIP, publishes
+versioned assets, downloads them to verify their checksum, and opens a PR that
+updates `.claude-plugin/marketplace.json`. Merge that PR to make the release
+installable from the marketplace. The repository's Actions settings must allow
+GitHub Actions to create pull requests.
+
+Only published, verified ZIPs belong in the public catalog. Until the first
+release is published, terminal-browser is available through the development
+marketplace. `plugins/terminal-browser-plugin/marketplace-entry.json` stores
+its pending listing metadata. Published versions and assets must not be replaced;
+bump the plugin version for a changed runtime, command, or skill.
+
 ### Repository layout
 
 ```
@@ -105,13 +151,16 @@ bun test
 │       ├── commands/                # slash commands
 │       ├── skills/                  # agent skills
 │       ├── src/                     # TypeScript sources
-│       └── dist/                    # build output (committed; the runtime runs this)
+│       └── dist/                    # build output (legacy plugin committed; ZIP plugin ignored)
 └── package.json                     # bun workspace root
 ```
 
 The CLI looks for the marketplace manifest only at `<repo>/.claude-plugin/marketplace.json` or `<repo>/marketplace.json`; per-plugin manifests live in each plugin's `.zcode-plugin/plugin.json` (`.claude-plugin/plugin.json` also works).
 
-Adding a new plugin: create `plugins/<name>-plugin/` with a `.zcode-plugin/plugin.json`, register it in `.claude-plugin/marketplace.json`, and add the directory to the workspace (already covered by `plugins/*`).
+Adding a new plugin: create `plugins/<name>-plugin/` with a `.zcode-plugin/plugin.json`.
+The `plugins/*` workspace glob discovers it automatically. Register a directory
+source only when its runtime is committed; register a ZIP source after its
+release is published and verified.
 
 ## License
 
